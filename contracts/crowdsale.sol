@@ -329,12 +329,16 @@ contract Crowdsale is Ownable {
         uint256 startTime;
         uint256 endTime;
         uint256 tokenPrice;
+        uint256 fundingCap;
+        uint256 fundsRaised;
+        bool isActive;
     }
 
     // Events
-    event RoundSet(uint256 indexed round, uint256 startTime, uint256 endTime, uint256 tokenPrice);
+    event RoundSet(uint256 indexed round, uint256 startTime, uint256 endTime, uint256 tokenPrice, uint256 fundingCap);
     event TokensPurchased(address indexed buyer, uint256 amount);
     event RoundAdvanced(uint256 newRound);
+    event RoundEnded(uint256 round);
     event USDTWithdrawn(uint256 amount);
     event GlobalPurchaseLimitUpdated(uint256 newLimit);
 
@@ -345,29 +349,35 @@ contract Crowdsale is Ownable {
     }
 
     function setRound(uint256 round, 
-                    uint256 startYear, uint256 startMonth, uint256 startDay, uint256 startHour,
-                    uint256 endYear, uint256 endMonth, uint256 endDay, uint256 endHour,
-                    uint256 tokenPrice) external onlyOwner {
+                      uint256 startYear, uint256 startMonth, uint256 startDay, uint256 startHour,
+                      uint256 endYear, uint256 endMonth, uint256 endDay, uint256 endHour,
+                      uint256 tokenPrice, uint256 fundingCap) external onlyOwner {
         require(round < totalRounds, "Invalid round");
         uint256 startTime = BokkyPooBahsDateTimeLibrary.timestampFromDate(startYear, startMonth, startDay) + startHour * 1 hours;
         uint256 endTime = BokkyPooBahsDateTimeLibrary.timestampFromDate(endYear, endMonth, endDay) + endHour * 1 hours;
 
         require(endTime > startTime, "End time must be after start time");
 
-        rounds[round] = Round(startTime, endTime, tokenPrice);
-        emit RoundSet(round, startTime, endTime, tokenPrice);
+        rounds[round] = Round(startTime, endTime, tokenPrice, fundingCap, 0, true);
+        emit RoundSet(round, startTime, endTime, tokenPrice, fundingCap);
     }
 
     function buyTokens(uint256 amount) external {
         require(currentRound < totalRounds, "Crowdsale ended");
-        Round memory round = rounds[currentRound];
+        Round storage round = rounds[currentRound];
         require(block.timestamp >= round.startTime && block.timestamp <= round.endTime, "Round not active");
+        require(round.isActive, "Round is not active");
         require(amountPurchased[msg.sender] + amount <= globalPurchaseLimit, "Global purchase limit exceeded");
 
         uint256 cost = amount * round.tokenPrice;
         require(usdtToken.transferFrom(msg.sender, address(this), cost), "USDT transfer failed");
-        amountPurchased[msg.sender] += amount;
+        round.fundsRaised += cost;
+        if (round.fundsRaised >= round.fundingCap) {
+            round.isActive = false;
+            emit RoundEnded(currentRound);
+        }
 
+        amountPurchased[msg.sender] += amount;
         myToken.transfer(msg.sender, amount);
         emit TokensPurchased(msg.sender, amount);
     }
@@ -386,5 +396,18 @@ contract Crowdsale is Ownable {
     function setGlobalPurchaseLimit(uint256 limit) external onlyOwner {
         globalPurchaseLimit = limit;
         emit GlobalPurchaseLimitUpdated(limit);
+    }
+
+    // Function to check and manually end a round if needed
+    function endRoundIfCapMet(uint256 round) external onlyOwner {
+        require(round < totalRounds, "Invalid round");
+        Round storage r = rounds[round];
+        require(block.timestamp >= r.startTime && block.timestamp <= r.endTime, "Round not within time bounds");
+        require(r.isActive, "Round already ended");
+
+        if (r.fundsRaised >= r.fundingCap) {
+            r.isActive = false;
+            emit RoundEnded(round);
+        }
     }
 }
