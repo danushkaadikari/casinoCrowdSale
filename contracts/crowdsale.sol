@@ -836,6 +836,7 @@ contract CasineoCrowdsale is Ownable {
         globalPurchaseLimit = _globalPurchaseLimit;
     }
 
+    //function to set rounds by owner, startTime & endTime in UTC
     function setRound(uint256 round, 
                       uint256 startYear, uint256 startMonth, uint256 startDay, uint256 startHour,
                       uint256 endYear, uint256 endMonth, uint256 endDay, uint256 endHour,
@@ -873,6 +874,8 @@ contract CasineoCrowdsale is Ownable {
     function advanceRound() external onlyOwner {
         require(currentRound < totalRounds, "All rounds completed");
         currentRound++;
+        Round storage round = rounds[currentRound];
+        round.startTime = block.timestamp;
         emit RoundAdvanced(currentRound);
     }
 
@@ -895,6 +898,7 @@ contract CasineoCrowdsale is Ownable {
 
         if (r.fundsRaised >= r.fundingCap) {
             r.isActive = false;
+            r.endTime = block.timestamp;
             emit RoundEnded(round);
         }
     }
