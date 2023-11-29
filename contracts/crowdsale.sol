@@ -907,6 +907,8 @@ contract CasineoCrowdsale is Ownable {
         require(round.isActive, "Round is not active");
         require(amountPurchased[msg.sender] + amount <= globalPurchaseLimit, "Global purchase limit exceeded");
 
+        amount = amount / 1 ether;
+
         uint256 cost = amount * round.tokenPrice;
         IERC20(usdtToken).safeTransferFrom(msg.sender, address(this), cost);
         round.fundsRaised += cost;
@@ -921,7 +923,7 @@ contract CasineoCrowdsale is Ownable {
     }
 
     function advanceRound() external onlyOwner {
-        require(currentRound < totalRounds, "All rounds completed");
+        require(currentRound < totalRounds - 1, "All rounds completed");
         currentRound++;
         Round storage round = rounds[currentRound];
         round.startTime = block.timestamp;
@@ -945,6 +947,8 @@ contract CasineoCrowdsale is Ownable {
         IERC20(myToken).safeTransfer(msg.sender, amount);
         emit myTokenWithdrawn(amount);
     }
+
+
 
     /**
      * @dev sets the purchase limit for a particular user to avoid whales.
