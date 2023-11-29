@@ -830,6 +830,7 @@ contract CasineoCrowdsale is Ownable {
     event USDTWithdrawn(uint256 amount);
     event GlobalPurchaseLimitUpdated(uint256 newLimit);
     event RoundEditted(uint256 roundNumber, uint256 newStartTime, uint256 newEndTime);
+    event myTokenWithdrawn(uint256 amount);
 
     constructor(address _myToken, address _usdtToken, uint256 _globalPurchaseLimit) {
         myToken = IERC20(_myToken);
@@ -934,6 +935,15 @@ contract CasineoCrowdsale is Ownable {
     function withdrawUSDT(uint256 amount) external onlyOwner {
         IERC20(usdtToken).safeTransfer(msg.sender, amount);
         emit USDTWithdrawn(amount);
+    }
+
+    /**
+     * @dev withdraws preTokens - sale tokens from the crowdsale contract by owner.
+     * @param amount that supposed to be withdrawn.
+     */
+    function withdrawPreToken(uint256 amount) external onlyOwner {
+        IERC20(myToken).safeTransfer(msg.sender, amount);
+        emit myTokenWithdrawn(amount);
     }
 
     /**
