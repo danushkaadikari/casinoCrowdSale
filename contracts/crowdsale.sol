@@ -829,6 +829,7 @@ contract CasineoCrowdsale is Ownable {
     event RoundEnded(uint256 round);
     event USDTWithdrawn(uint256 amount);
     event GlobalPurchaseLimitUpdated(uint256 newLimit);
+    event RoundEditted(uint256 roundNumber, uint256 newStartTime, uint256 newEndTime);
 
     constructor(address _myToken, address _usdtToken, uint256 _globalPurchaseLimit) {
         myToken = IERC20(_myToken);
@@ -837,6 +838,20 @@ contract CasineoCrowdsale is Ownable {
     }
 
     //function to set rounds by owner, startTime & endTime in UTC
+    /**
+     * @dev Sets the rounds by owner.
+     * @param round The number of the round.
+     * @param startYear The Year of the start time for the round.
+     * @param startMonth The Month of the start time for the round.
+     * @param startDay The Day of the start time for the round.
+     * @param startHour The Hour of the start time for the round. Time is in UTC.
+     * @param endYear The Year of the end time for the round.
+     * @param endMonth The Month of the end time for the round.
+     * @param endDay The Day of the end time for the round.
+     * @param endHour The Hour of the end time for the round. Time is in UTC.
+     * @param tokenPrice The price per token in USDT.
+     * @param fundingCap Maximum funds that are aiming to raised for the round.
+     */
     function setRound(uint256 round, 
                       uint256 startYear, uint256 startMonth, uint256 startDay, uint256 startHour,
                       uint256 endYear, uint256 endMonth, uint256 endDay, uint256 endHour,
@@ -851,6 +866,39 @@ contract CasineoCrowdsale is Ownable {
         emit RoundSet(round, startTime, endTime, tokenPrice, fundingCap);
     }
 
+    /**
+     * @dev Edits the start and end times of a specified round.
+     *      Includes checks to ensure no overlap with other rounds.
+     * @param roundNumber The number of the round to edit.
+     * @param newStartTime The new start time for the round.
+     * @param newEndTime The new end time for the round.
+     */
+    function editRoundTiming(uint256 roundNumber, uint256 newStartTime, uint256 newEndTime) external onlyOwner {
+        require(roundNumber < totalRounds, "Invalid round number");
+        require(newEndTime > newStartTime, "End time must be after start time");
+
+        // Check for time overlaps with other rounds
+        for (uint256 i = 0; i < totalRounds; i++) {
+            if (i != roundNumber) {
+                Round memory otherRound = rounds[i];
+                bool isOverlapping = (newStartTime < otherRound.endTime && newEndTime > otherRound.startTime) 
+                                      || (newEndTime > otherRound.startTime && newStartTime < otherRound.endTime);
+                require(!isOverlapping, "New timing overlaps with another round");
+            }
+        }
+
+        // Edit the round timing
+        Round storage round = rounds[roundNumber];
+        round.startTime = newStartTime;
+        round.endTime = newEndTime;
+
+        emit RoundEditted(roundNumber, newStartTime, newEndTime);
+    }
+
+    /**
+     * @dev buy tokens by external users.
+     * @param amount The number of the round to edit.
+     */
     function buyTokens(uint256 amount) external {
         require(currentRound < totalRounds, "Crowdsale ended");
         Round storage round = rounds[currentRound];
@@ -879,17 +927,28 @@ contract CasineoCrowdsale is Ownable {
         emit RoundAdvanced(currentRound);
     }
 
+    /**
+     * @dev withdraws funds from the crowdsale contract by owner.
+     * @param amount that supposed to be withdrawn.
+     */
     function withdrawUSDT(uint256 amount) external onlyOwner {
         IERC20(usdtToken).safeTransfer(msg.sender, amount);
         emit USDTWithdrawn(amount);
     }
 
+    /**
+     * @dev sets the purchase limit for a particular user to avoid whales.
+     * @param limit as the number of tokens can be bought by a particular wallet address.
+     */
     function setGlobalPurchaseLimit(uint256 limit) external onlyOwner {
         globalPurchaseLimit = limit;
         emit GlobalPurchaseLimitUpdated(limit);
     }
 
-    // Function to check and manually end a round if needed
+    /**
+     * @dev checks and manually end a round if needed.
+     * @param round number to be ended.
+     */
     function endRoundIfCapMet(uint256 round) external onlyOwner {
         require(round < totalRounds, "Invalid round");
         Round storage r = rounds[round];
@@ -902,4 +961,23 @@ contract CasineoCrowdsale is Ownable {
             emit RoundEnded(round);
         }
     }
+
+    /**
+     * @dev Manually ends a specified round before its scheduled end time.
+     * @param roundNumber The number of the round to end.
+     */
+    function endRoundManually(uint256 roundNumber) external onlyOwner {
+        require(roundNumber < totalRounds, "Invalid round number");
+
+        Round storage round = rounds[roundNumber];
+        require(round.isActive, "Specified round is already inactive");
+
+        // Set the specified round to inactive
+        round.isActive = false;
+        round.endTime = block.timestamp;
+
+        // Emit an event to indicate the round has ended
+        emit RoundEnded(roundNumber);
+    }
+
 }
