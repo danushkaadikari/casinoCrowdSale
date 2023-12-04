@@ -800,7 +800,7 @@ library BokkyPooBahsDateTimeLibrary {
     }
 }
 
-contract CasineoCrowdsale is Ownable {
+contract CasineoCrowdSale is Ownable {
     using BokkyPooBahsDateTimeLibrary for uint;
     using SafeERC20 for IERC20;
 
@@ -808,7 +808,7 @@ contract CasineoCrowdsale is Ownable {
     IERC20 public usdtToken;
 
     uint256 public currentRound = 0;
-    uint256 public constant totalRounds = 4;
+    uint256 public constant totalRounds = 15;
     mapping(uint256 => Round) public rounds;
     mapping(address => uint256) public amountPurchased;
     uint256 public globalPurchaseLimit;
@@ -907,7 +907,7 @@ contract CasineoCrowdsale is Ownable {
         require(round.isActive, "Round is not active");
         require(amountPurchased[msg.sender] + amount <= globalPurchaseLimit, "Global purchase limit exceeded");
 
-        amount = amount / 1 ether;
+        amount = amount / 10 ** 18;
 
         uint256 cost = amount * round.tokenPrice;
         IERC20(usdtToken).safeTransferFrom(msg.sender, address(this), cost);
